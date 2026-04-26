@@ -1,137 +1,203 @@
+version: '3.7' # Note: This is obsolete and will be ignored, but harmless.
+
 services:
-    laravel.test:
-        build:
-            context: ./vendor/laravel/sail/runtimes/8.5
-            dockerfile: Dockerfile
-            args:
-                WWWGROUP: '${WWWGROUP}'
-        image: sail-8.5/app
-        extra_hosts:
-            - 'host.docker.internal:host-gateway'
-        ports:
-            - '${APP_PORT:-80}:80'
-            - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
-        environment:
-            WWWUSER: '${WWWUSER}'
-            LARAVEL_SAIL: 1
-            XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
-            XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
-            IGNITION_LOCAL_SITES_PATH: '${PWD}'
-        volumes:
-            - '.:/var/www/html'
-        networks:
-            - sail
-        depends_on:
-            - mysql
-            - redis
-            - pgsql
-            - mailpit
-            - rabbitmq
-    mysql:
-        image: 'mysql:8.4'
-        ports:
-            - '${FORWARD_DB_PORT:-3306}:3306'
-        environment:
-            MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
-            MYSQL_ROOT_HOST: '%'
-            MYSQL_DATABASE: '${DB_DATABASE}'
-            MYSQL_USER: '${DB_USERNAME}'
-            MYSQL_PASSWORD: '${DB_PASSWORD}'
-            MYSQL_ALLOW_EMPTY_PASSWORD: 1
-            MYSQL_EXTRA_OPTIONS: '${MYSQL_EXTRA_OPTIONS:-}'
-        volumes:
-            - 'sail-mysql:/var/lib/mysql'
-            - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - mysqladmin
-                - ping
-                - '-p${DB_PASSWORD}'
-            retries: 3
-            timeout: 5s
-    redis:
-        image: 'redis:alpine'
-        ports:
-            - '${FORWARD_REDIS_PORT:-6379}:6379'
-        volumes:
-            - 'sail-redis:/data'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - redis-cli
-                - ping
-            retries: 3
-            timeout: 5s
-    pgsql:
-        image: 'postgres:17-alpine'
-        ports:
-            - '${FORWARD_DB_PORT:-5432}:5432'
-        environment:
-            PGPASSWORD: '${DB_PASSWORD:-secret}'
-            POSTGRES_DB: '${DB_DATABASE}'
-            POSTGRES_USER: '${DB_USERNAME}'
-            POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
-        volumes:
-            - 'sail-pgsql:/var/lib/postgresql'
-            - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - pg_isready
-                - '-q'
-                - '-d'
-                - '${DB_DATABASE}'
-                - '-U'
-                - '${DB_USERNAME}'
-            retries: 3
-            timeout: 5s
-    mailpit:
-        image: 'axllent/mailpit:latest'
-        ports:
-            - '${FORWARD_MAILPIT_PORT:-1025}:1025'
-            - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
-        networks:
-            - sail
-    rabbitmq:
-        image: 'rabbitmq:4-management-alpine'
-        hostname: rabbitmq
-        ports:
-            - '${FORWARD_RABBITMQ_PORT:-5672}:5672'
-            - '${FORWARD_RABBITMQ_DASHBOARD_PORT:-15672}:15672'
-        environment:
-            RABBITMQ_HOST: '%'
-            RABBITMQ_USER: '${RABBITMQ_USER}'
-            RABBITMQ_PASSWORD: '${RABBITMQ_PASSWORD}'
-            RABBITMQ_VHOST: '${RABBITMQ_VHOST}'
-            RABBITMQ_QUEUE: '${RABBITMQ_QUEUE}'
-        volumes:
-            - 'sail-rabbitmq:/var/lib/rabbitmq'
-        networks:
-            - sail
-        healthcheck:
-            test:
-                - CMD
-                - rabbitmq-diagnostics
-                - '-q'
-                - ping
-            retries: 3
-            timeout: 5s
+  # Laravel Application and its dependencies
+  laravel.test:
+    build:
+      context: ./vendor/laravel/sail/runtimes/8.5
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '${WWWGROUP}'
+    image: sail-8.5/app
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    ports:
+      - '${APP_PORT:-80}:80'
+      - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
+    environment:
+      WWWUSER: '${WWWUSER}'
+      LARAVEL_SAIL: 1
+      XDEBUG_MODE: '${SAIL_XDEBUG_MODE:-off}'
+      XDEBUG_CONFIG: '${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}'
+      IGNITION_LOCAL_SITES_PATH: '${PWD}'
+    volumes:
+      - '.:/var/www/html'
+    networks:
+      - sail
+    depends_on:
+      - mysql
+      - redis
+      - pgsql
+      - mailpit
+      - rabbitmq
+  mysql:
+    image: 'mysql:8.4'
+    ports:
+      - '${FORWARD_DB_PORT:-3306}:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: '${DB_DATABASE}'
+      MYSQL_USER: '${DB_USERNAME}'
+      MYSQL_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+      MYSQL_EXTRA_OPTIONS: '${MYSQL_EXTRA_OPTIONS:-}'
+    volumes:
+      - 'sail-mysql:/var/lib/mysql'
+      - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
+    networks:
+      - sail
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - '-p${DB_PASSWORD}'
+      retries: 3
+      timeout: 5s
+  redis:
+    image: 'redis:alpine'
+    ports:
+      - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+      - 'sail-redis:/data'
+    networks:
+      - sail
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      retries: 3
+      timeout: 5s
+  pgsql:
+    image: 'postgres:17-alpine'
+    ports:
+      - '${FORWARD_DB_PORT:-5432}:5432'
+    environment:
+      PGPASSWORD: '${DB_PASSWORD:-secret}'
+      POSTGRES_DB: '${DB_DATABASE}'
+      POSTGRES_USER: '${DB_USERNAME}'
+      POSTGRES_PASSWORD: '${DB_PASSWORD:-secret}'
+    volumes:
+      - 'sail-pgsql:/var/lib/postgresql'
+      - './vendor/laravel/sail/database/pgsql/create-testing-database.sql:/docker-entrypoint-initdb.d/10-create-testing-database.sql'
+    networks:
+      - sail
+    healthcheck:
+      test:
+        - CMD
+        - pg_isready
+        - '-q'
+        - '-d'
+        - '${DB_DATABASE}'
+        - '-U'
+        - '${DB_USERNAME}'
+      retries: 3
+      timeout: 5s
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    ports:
+      - '${FORWARD_MAILPIT_PORT:-1025}:1025'
+      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
+    networks:
+      - sail
+  rabbitmq:
+    image: 'rabbitmq:4-management-alpine'
+    hostname: rabbitmq
+    ports:
+      - '${FORWARD_RABBITMQ_PORT:-5672}:5672'
+      - '${FORWARD_RABBITMQ_DASHBOARD_PORT:-15672}:15672'
+    environment:
+      RABBITMQ_HOST: '%' # Note: Consider using the service name 'rabbitmq' if connecting from within the 'sail' network.
+      RABBITMQ_USER: '${RABBITMQ_USER}'
+      RABBITMQ_PASSWORD: '${RABBITMQ_PASSWORD}'
+      RABBITMQ_VHOST: '${RABBITMQ_VHOST}'
+      RABBITMQ_QUEUE: '${RABBITMQ_QUEUE}'
+    volumes:
+      - 'sail-rabbitmq:/var/lib/rabbitmq'
+    networks:
+      - sail
+    healthcheck:
+      test:
+        - CMD
+        - rabbitmq-diagnostics
+        - '-q'
+        - ping
+      retries: 3
+      timeout: 5s
+  # Kafka Cluster Services
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    ports:
+      - "2181:2181" # Client port
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - kafka_network
+    volumes:
+      - zookeeper_data:/data/zookeeper
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    depends_on:
+      - zookeeper # Kafka depends on Zookeeper
+    ports:
+      - "9092:9092" # Client port for external access (e.g., from host or Laravel)
+      - "29092:29092" # Internal broker-to-broker communication
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181 # Connect to the zookeeper service name on the kafka_network
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONFLUENT_SUPPORT_METRICS_ENABLE: 'false'
+      KAFKA_PROCESS_ROLES: broker
+      KAFKA_BROKER_RACK: rack-1
+      KAFKA_NUM_PARTITIONS: 1
+      # --- Added for KRaft mode ---
+      KAFKA_CLUSTER_ID: 'my-kraft-cluster-id' # A unique ID for your Kafka cluster
+      
+    networks:
+      - kafka_network
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080" # UI accessible at http://localhost:8080
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: localhost:9092 # Connect to Kafka via the advertised localhost port
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181 # Connect to Zookeeper service name
+    depends_on:
+      - kafka
+      - zookeeper
+    networks:
+      - kafka_network
+# Define Networks
 networks:
-    sail:
-        driver: bridge
+  sail:
+    driver: bridge
+  kafka_network:
+    driver: bridge
+# Define Volumes
 volumes:
-    sail-mysql:
-        driver: local
-    sail-redis:
-        driver: local
-    sail-pgsql:
-        driver: local
-    sail-rabbitmq:
-        driver: local
+  sail-mysql:
+    driver: local
+  sail-redis:
+    driver: local
+  sail-pgsql:
+    driver: local
+  sail-rabbitmq:
+    driver: local
+  kafka_data:
+    driver: local
+  zookeeper_data:
+    driver: local
