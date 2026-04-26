@@ -1,3 +1,4 @@
+# Logs
 *.log
 .DS_Store
 .env
@@ -23,3 +24,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Framework specific caches and sessions
+/storage/framework/cache/
+/storage/framework/sessions/
+
