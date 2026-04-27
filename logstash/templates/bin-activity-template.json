@@ -1,0 +1,81 @@
+{
+  "index_patterns": ["bin-activity-*"],
+  "priority": 100,
+  "template": {
+    "settings": {
+      "number_of_shards":   1,
+      "number_of_replicas": 0,
+      "refresh_interval":   "5s",
+      "index.mapping.total_fields.limit": 100
+    },
+    "mappings": {
+      "dynamic": "strict",
+      "properties": {
+
+        "@timestamp": {
+          "type": "date"
+        },
+
+        "bin_id": {
+          "type": "keyword"
+        },
+
+        "type": {
+          "type": "keyword"
+        },
+
+        "severity": {
+          "type": "keyword"
+        },
+
+        "location": {
+          "properties": {
+            "x": { "type": "float" },
+            "y": { "type": "float" }
+          }
+        },
+
+        "location_geo": {
+          "type": "geo_point"
+        },
+
+        "payload": {
+          "type": "object",
+          "dynamic": true
+        },
+
+        "user_id": {
+          "type": "keyword"
+        },
+
+        "weight_deposited": {
+          "type": "float"
+        },
+
+        "current_weight": {
+          "type": "float"
+        },
+
+        "capacity_percent": {
+          "type": "float"
+        },
+
+        "threshold_percent": {
+          "type": "float"
+        },
+
+        "max_capacity": {
+          "type": "float"
+        },
+
+        "battery_level": {
+          "type": "float"
+        },
+
+        "lid_closed": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

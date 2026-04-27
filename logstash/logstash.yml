@@ -1,0 +1,22 @@
+# logstash.yml
+#
+# Place this at the root of your Logstash config directory
+# (or mount it to /usr/share/logstash/config/logstash.yml in Docker)
+
+http.host: "0.0.0.0"
+http.port: 9600
+
+# Path to pipeline configs
+path.config: /usr/share/logstash/pipeline
+
+# How often Logstash checks for config changes (set to 0 to disable auto-reload)
+config.reload.automatic: true
+config.reload.interval: 10s
+
+# Pipeline settings
+pipeline.workers:       2
+pipeline.batch.size:    125
+pipeline.batch.delay:   50
+
+# Logging
+log.level: info

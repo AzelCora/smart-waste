@@ -2,36 +2,21 @@
 
 declare(strict_types=1);
 
-namespace SmartBin;
+namespace App\DTOs;
 
 /**
  * Immutable value object representing a single message emitted by a smart bin.
- *
- * Every message carries the bin's identity and coordinates so consumers
- * can route or display it without additional lookups.
  */
 final class BinMessage implements \JsonSerializable
 {
-    /**
-     * @param string               $binId       Unique bin identifier
-     * @param float                $locationX   Bin X coordinate
-     * @param float                $locationY   Bin Y coordinate
-     * @param MessageType          $type        Semantic category of the message
-     * @param array<string, mixed> $payload     Alert-specific data (capacity %, weight, …)
-     * @param \DateTimeImmutable   $occurredAt  When the condition was detected
-     */
     public function __construct(
-        public readonly string           $binId,
-        public readonly float            $locationX,
-        public readonly float            $locationY,
-        public readonly MessageType      $type,
-        public readonly array            $payload,
+        public readonly string             $binId,
+        public readonly float              $locationX,
+        public readonly float              $locationY,
+        public readonly MessageType        $type,
+        public readonly array              $payload,
         public readonly \DateTimeImmutable $occurredAt,
     ) {}
-
-    // ------------------------------------------------------------------
-    // Convenience factory — keeps call sites readable
-    // ------------------------------------------------------------------
 
     public static function create(
         string      $binId,
@@ -50,11 +35,6 @@ final class BinMessage implements \JsonSerializable
         );
     }
 
-    // ------------------------------------------------------------------
-    // Serialisation
-    // ------------------------------------------------------------------
-
-    /** @return array<string, mixed> */
     public function jsonSerialize(): array
     {
         return [
@@ -66,7 +46,6 @@ final class BinMessage implements \JsonSerializable
         ];
     }
 
-    /** @return array<string, mixed> */
     public function toArray(): array
     {
         return $this->jsonSerialize();

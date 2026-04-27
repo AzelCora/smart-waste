@@ -6,66 +6,32 @@ declare(strict_types=1);
 /**
  * bin-runner.php
  *
- * Continuously simulates a single smart waste bin and prints generated
- * messages to stdout.
- *
- * Usage:
- *   php bin-runner.php <bin-id> <x> <y> <max-capacity> [tick-seconds] [initial-battery] [initial-weight]
+ * Usage (run from the project root):
+ *   php app/Services/bin-runner.php <bin-id> <x> <y> <max-capacity> [tick-seconds] [initial-battery] [initial-weight]
  *
  * Examples:
- *   php bin-runner.php BIN-001 -8.6538 41.1579 100
- *   php bin-runner.php BIN-002 -8.6100 41.1480 150 2 85 30
- *
- * Run multiple bins simultaneously:
- *   php bin-runner.php BIN-001 -8.6538 41.1579 100 2 &
- *   php bin-runner.php BIN-002 -8.6100 41.1480 150 2 85 &
- *   php bin-runner.php BIN-003 -8.6200 41.1600  80 2 60 40 &
+ *   php app/Services/bin-runner.php BIN-001 -8.6538 41.1579 100
+ *   php app/Services/bin-runner.php BIN-002 -8.6100 41.1480 150 2 85 30
  */
 
-// ---------------------------------------------------------------------------
-// Autoloader
-// ---------------------------------------------------------------------------
-// Adjusted paths to reflect file movements to app/DTOs/, app/Repository/,
-// and directly into app/Services/ for BinSimulator.php.
-spl_autoload_register(static function (string $class): void {
-    $prefix = 'SmartBin';
-    if (!str_starts_with($class, $prefix)) {
-        return;
-    }
-    $map = [
-        // DTOs
-        'SmartBin\BinMessage'                   => __DIR__ . '/../DTOs/BinMessage.php',
-        'SmartBin\MessageType'                  => __DIR__ . '/../DTOs/Types.php',
-        'SmartBin\UsageEvent'                   => __DIR__ . '/../DTOs/Types.php',
-        'SmartBin\BinState'                     => __DIR__ . '/../DTOs/Types.php',
+$autoloader = dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . 'vendor' . DIRECTORY_SEPARATOR . 'autoload.php';
 
-        // Services (assuming AlertRules.php and MessageGenerator.php remain in app/Services/)
-        'SmartBin\AlertRule'                    => __DIR__ . '/AlertRules.php',
-        'SmartBin\UsageEventRule'               => __DIR__ . '/AlertRules.php',
-        'SmartBin\CapacityWarningRule'          => __DIR__ . '/AlertRules.php',
-        'SmartBin\LidAlertRule'                 => __DIR__ . '/AlertRules.php',
-        'SmartBin\BatteryWarningRule'           => __DIR__ . '/AlertRules.php',
-        'SmartBin\MessageGenerator'             => __DIR__ . '/MessageGenerator.php',
+if (!file_exists($autoloader)) {
+    fwrite(STDERR, "[ERROR] vendor/autoload.php not found. Run: composer install\n");
+    exit(1);
+}
 
-        // Repository
-        'SmartBin\AlertStateRepository'         => __DIR__ . '/../Repository/AlertStateRepository.php',
-        'SmartBin\InMemoryAlertStateRepository' => __DIR__ . '/../Repository/AlertStateRepository.php',
+require_once $autoloader;
 
-        // Simulation (BinSimulator.php is directly in app/Services/)
-        'SmartBin\Simulation\BinSimulator'     => __DIR__ . '/BinSimulator.php',
-    ];
-    if (isset($map[$class])) {
-        require_once $map[$class];
-    }
-});
+use longlang\phpkafka\Producer\Producer;
+use longlang\phpkafka\Producer\ProducerConfig;
+use App\Repository\InMemoryAlertStateRepository;
+use App\Services\MessageGenerator;
+use App\Services\BinSimulator;
 
-use SmartBin\InMemoryAlertStateRepository;
-use SmartBin\MessageGenerator;
-use SmartBin\Simulation\BinSimulator;
+const KAFKA_BOOTSTRAP = 'localhost:9092';
+const KAFKA_TOPIC     = 'bin-activity';
 
-// ---------------------------------------------------------------------------
-// ANSI colour helpers
-// ---------------------------------------------------------------------------
 const COLORS = [
     'reset'   => "\033[0m",
     'bold'    => "\033[1m",
@@ -84,7 +50,6 @@ function c(string $color, string $text): string
     return COLORS[$color] . $text . COLORS['reset'];
 }
 
-/** Pick a colour based on message type string. */
 function typeColor(string $type): string
 {
     if (str_contains($type, 'capacity_warning_90')) return 'red';
@@ -98,25 +63,21 @@ function typeColor(string $type): string
     return 'white';
 }
 
-/** Format payload key=value pairs for compact display. */
 function fmtPayload(array $payload): string
 {
     $parts = [];
     foreach ($payload as $k => $v) {
-        $val    = is_float($v) ? number_format($v, 2) : var_export($v, true);
+        $val     = is_float($v) ? number_format($v, 2) : var_export($v, true);
         $parts[] = c('gray', $k . '=') . $val;
     }
     return implode('  ', $parts);
 }
 
 // ---------------------------------------------------------------------------
-// Parse arguments
+// Arguments
 // ---------------------------------------------------------------------------
-$argv = $argv ?? [];
-
 if (count($argv) < 5) {
-    fwrite(STDERR, "Usage: php bin-runner.php <bin-id> <x> <y> <max-capacity> [tick-seconds=2] [initial-battery=100] [initial-weight=0]
-");
+    fwrite(STDERR, "Usage: php bin-runner.php <bin-id> <x> <y> <max-capacity> [tick-seconds=2] [initial-battery=100] [initial-weight=0]\n");
     exit(1);
 }
 
@@ -144,58 +105,73 @@ $repo      = new InMemoryAlertStateRepository();
 $generator = MessageGenerator::withDefaultRules($repo);
 
 // ---------------------------------------------------------------------------
-// Boot banner
+// Kafka
 // ---------------------------------------------------------------------------
-echo c('bold', "
-╔══════════════════════════════════════════════════════╗
-");
-echo c('bold', "║  Smart Bin Simulator — " . str_pad($binId, 30) . "║
-");
-echo c('bold', "╚══════════════════════════════════════════════════════╝
-");
-echo c('dim',  "  Location  : ({$locationX}, {$locationY})
-");
-echo c('dim',  "  Capacity  : {$maxCapacity} kg
-");
-echo c('dim',  "  Battery   : {$initialBattery} %
-");
-echo c('dim',  "  Tick      : every {$tickSeconds}s
-");
-echo c('dim',  "  Started   : " . date('Y-m-d H:i:s') . "
+$kafkaOnline = false;
+$producer    = null;
 
-");
+try {
+    $config = new ProducerConfig();
+    $config->setBootstrapServer(KAFKA_BOOTSTRAP);
+    $config->setAcks(-1);
+    $config->setConnectTimeout(3);
+    $config->setSendTimeout(3);
+    $producer    = new Producer($config);
+    $kafkaOnline = true;
+} catch (\Throwable $e) {
+    fwrite(STDERR, c('yellow', "[WARN] Kafka unavailable — terminal-only mode: " . $e->getMessage() . "\n"));
+}
 
 // ---------------------------------------------------------------------------
-// Main simulation loop
+// Banner
 // ---------------------------------------------------------------------------
-$tick = 0;
+$kafkaStatus = $kafkaOnline
+    ? c('green',  'connected (' . KAFKA_BOOTSTRAP . ' -> ' . KAFKA_TOPIC . ')')
+    : c('yellow', 'offline (terminal-only)');
 
+echo c('bold', "\n╔══════════════════════════════════════════════════════╗\n");
+echo c('bold', "║  Smart Bin Simulator — " . str_pad($binId, 30) . "║\n");
+echo c('bold', "╚══════════════════════════════════════════════════════╝\n");
+echo c('dim',  "  Location  : ({$locationX}, {$locationY})\n");
+echo c('dim',  "  Capacity  : {$maxCapacity} kg\n");
+echo c('dim',  "  Battery   : {$initialBattery} %\n");
+echo c('dim',  "  Tick      : every {$tickSeconds}s\n");
+echo       "  Kafka     : " . $kafkaStatus . "\n";
+echo c('dim',  "  Started   : " . date('Y-m-d H:i:s') . "\n\n");
+
+// ---------------------------------------------------------------------------
+// Loop
+// ---------------------------------------------------------------------------
 while (true) {
-    $tick++;
     $state    = $simulator->tick();
     $messages = $generator->generate($state);
 
     foreach ($messages as $msg) {
-        $ts      = date('H:i:s');
-        $type    = $msg->type->value;
-        $color   = typeColor($type);
-        $payload = fmtPayload($msg->payload);
+        $ts    = date('H:i:s');
+        $type  = $msg->type->value;
 
         printf(
-            "%s  %s  %s  %s
-",
+            "%s  %s  %s  %s\n",
             c('gray',  $ts),
-            c('bold',  str_pad($msg->binId, 10)),
-            c($color,  str_pad($type, 28)),
-            $payload
+            c('bold',  str_pad($msg->binId, 16)),
+            c(typeColor($type), str_pad($type, 28)),
+            fmtPayload($msg->payload)
         );
+
+        if ($kafkaOnline && $producer !== null) {
+            try {
+                $producer->send(
+                    topic: KAFKA_TOPIC,
+                    value: json_encode($msg->toArray(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+                    key:   $msg->binId,
+                );
+            } catch (\Throwable $e) {
+                fwrite(STDERR, c('yellow', "  [WARN] Kafka send failed: " . $e->getMessage() . "\n"));
+            }
+        }
     }
 
-    // Flush immediately so output appears in real time even when piped
-    if (ob_get_level()) {
-        ob_flush();
-    }
+    if (ob_get_level()) ob_flush();
     flush();
-
     sleep($tickSeconds);
 }

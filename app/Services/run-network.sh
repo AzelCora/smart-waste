@@ -30,6 +30,10 @@ declare -a BINS=(
     "BIN-003  -8.6200  41.1600   80    60  40"
     "BIN-004  -8.6350  41.1520  120    40  70"
     "BIN-005  -8.6450  41.1650  200    95   5"
+    # Added new bins with invented properties
+    "BIN-006  -8.6700  41.1400   90    75  10" # Small bin, low initial weight, decent battery
+    "BIN-007  -8.5900  41.1700  180    50  80" # Large bin, high initial weight, lower battery
+    "BIN-008  -8.7000  41.1550  110    99   0" # Medium bin, almost full capacity, high battery
 )
 
 # ------------------------------------------------------------------
