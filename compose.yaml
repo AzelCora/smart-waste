@@ -103,7 +103,8 @@ services:
       - sail
     volumes:
       - kafka_data:/var/lib/kafka/data
-      - ./kafka-init:/confluent.docker.entrypoint.d  # <-- Add this line
+  
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui

@@ -34,6 +34,8 @@ final class UsageEventRule implements AlertRule
                 'weight_deposited' => $event->weightDeposited,
                 'current_weight'   => $state->currentWeight,
                 'capacity_percent' => $state->capacityPercent(),
+                'battery_level'    => $state->batteryLevel,
+                'lid_closed'       => $state->lidClosed,
             ],
         );
     }
